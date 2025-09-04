@@ -1,0 +1,92 @@
+#  **********************************************************
+#   This AWK script is for burst analysis, in which the data format should be Minianalysis by Justin Lee.
+#   
+#   Copyrighted by Takeshi Ohkubo,  Nov.17  2012
+#   at the Brain Reserach Insitute,  Niigata university 
+#  **********************************************************
+#
+#   << Usage >>
+#   The AWK program is freeware and can be downloaded.
+#   Install AWK program (ex.  AWK32.EXE)  into PATH directory.
+#   
+#   Make data files (ex. input1.txt) from the Minianalysis by Justin Lee.
+#   Open MS-DOS prompt and change to working directory. Type like that.
+#   
+#   
+#   D:\AWK> awk32 -f burst.awk  input1.txt  > output1.txt
+#  
+#   ">" means redirect according to the rule by MS-DOS.
+#   
+
+
+
+BEGIN { 
+          FS="\t"
+          Time[0] = -100000
+          burston = 0
+          TotalBurst = 0;  BurstTrain = 0;  TotalBurstDuration = 0;
+       }
+
+
+
+{
+ if (FNR > 1) {
+
+   gsub(",", "", $2)      #  eliminate character , from the data
+   gsub("\"", "", $2)     #  eliminate character " from the data
+   Time[$1] = $2
+   ISI[$1] = Time[$1] - Time[$1-1]     #  ISI: interspike interval (msec)
+
+   if ( $1 > 1 ) {
+     if ((ISI[$1 - 1] >= 80 && ISI[$1] < 80 ) && burston == 0  ) { burston = 1;  burststart = $1 - 1 }
+
+     if ((ISI[$1 - 1] <= 160 && ISI[$1] > 160) && burston == 1 ) { 
+
+        burston = 0;  burstend = $1 - 1
+        TotalBurst = TotalBurst + burstend - burststart + 1
+        BurstTrain++
+        TotalBurstDuration = TotalBurstDuration + ( Time[burstend] - Time[burststart] )
+
+     }
+   }
+
+ }
+}
+
+
+
+
+
+
+
+
+END { 
+
+     totaldata = FNR-1
+
+#    ISI[1] is excluded.
+  meanFreq = (totaldata - 1) / ( Time[totaldata] - Time[2] ) * 1000
+  sumISI = 0;  for (i=2; i <= totaldata; i++) { sumISI = sumISI + (ISI[i]/1000) }
+  meanISI = sumISI / (totaldata - 1)
+  sq = 0;  for (i=2; i <= totaldata; i++) { sq = sq + ((ISI[i]/1000) - meanISI)^2 }
+  SDofISI = sqrt( sq / (totaldata-1) )
+  CV = SDofISI / meanISI
+
+  if (BurstTrain == 0) { AveDur =0  }
+  if (BurstTrain != 0) { AveDur = TotalBurstDuration / BurstTrain }
+
+  print ( FILENAME,   \
+    "\t"  "total-spikes="  "\t" totaldata,    \
+    "\t"  "total-spikes-in-burst="  "\t"  TotalBurst,    \
+    "\t"  "Train-of-burst="  "\t"  BurstTrain,    \
+    "\t"  "average-Burst-frequency(Burst‚ÌoŒ»•p“x)="   "\t"   BurstTrain / Time[totaldata]*1000,    \
+    "\t"  "total-burst-duration/total-time(%)="  "\t"  TotalBurstDuration / Time[totaldata]*100,    \
+    "\t"  "mean-firing-frequency(•½‹Ï”­‰Î•p“x)(Hz)="  "\t"  meanFreq,    \
+    "\t"  "%SWB="  "\t"    TotalBurst/(totaldata - 1)*100,    \
+    "\t"  "CV(%)="   "\t"  CV * 100, 
+    "\t"  "total-Burst-duration/total-burst-number(burst1ŒÂ‚ ‚½‚è‚Ì•½‹Ïduration)="  "\t"  AveDur,    \
+    "\t"  "toal-Burst-duration/1min(1•ªŠÔ‚ ‚½‚è‚ÌBurst-duration)(msec/min)="  "\t"  TotalBurstDuration / Time[totaldata]*60000 )
+
+    }
+
+
